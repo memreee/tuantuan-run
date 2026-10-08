@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#168af1"><meta name="description" content="团团急速冲：左右切道，躲避路障，收集红包。"><title>团团急速冲</title><link rel="icon" href="assets/packet.png"><link rel="stylesheet" href="style.css?v=coupon-layout-2"></head>
+<body>
+<main id="stage" aria-label="团团急速冲跑酷游戏">
+ <section id="home" aria-label="游戏首页">
+ <div class="home-art">
+  <img class="entrance" src="assets/ui-v2/home.webp" alt="团团急速冲。每日挑战，得现金红包，赢免单机会。黄色兔子骑着自行车，准备在蓝天街区开始挑战。" draggable="false">
+  <button class="hotspot home-back" aria-label="返回" data-action="back"></button>
+  <button class="hotspot home-music" aria-label="开启音乐" data-action="music"><span id="mute-mark" aria-hidden="true"></span></button>
+  <button class="hotspot home-rules" aria-label="规则" data-action="rules"></button>
+  <button class="hotspot checkpoints" aria-label="查看关卡说明" data-action="levels"></button>
+  <button class="hotspot rabbit" aria-label="和团团打招呼" data-action="hello"><img src="assets/ui-v2/home-rider.png" alt="" draggable="false"></button>
+  <button class="hotspot energy" aria-label="去赚体力" data-action="energy"></button>
+  <button class="hotspot ranking" aria-label="排行榜" data-action="ranking"></button>
+  <div id="energy-count">剩余体力：3</div>
+  <button class="hotspot start" aria-label="开始挑战，必得88元神券" data-action="start"></button>
+  <img class="home-hand" src="assets/ui-v2/home-hand.png" alt="" draggable="false" aria-hidden="true">
+  <div class="welfare-scroll" tabindex="0" role="region" aria-label="福利站优惠券，左右滑动"><div class="welfare-item"><div class="welfare-coupon"><strong><small>¥</small>5</strong><span>日用品代金券</span></div><button class="welfare-view" data-feedback aria-label="5元券，前往查看"><img src="assets/ui-v2/coupon-view.png" alt="前往查看" draggable="false"></button></div><div class="welfare-item"><div class="welfare-coupon"><strong><small>¥</small>20</strong><span>日用品代金券</span></div><button class="welfare-view" data-feedback aria-label="20元券，前往查看"><img src="assets/ui-v2/coupon-view.png" alt="前往查看" draggable="false"></button></div><div class="welfare-item"><div class="welfare-coupon"><strong><small>¥</small>38</strong><span>日用品代金券</span></div><button class="welfare-view" data-feedback aria-label="38元券，前往查看"><img src="assets/ui-v2/coupon-view.png" alt="前往查看" draggable="false"></button></div><div class="welfare-item"><div class="welfare-coupon"><strong><small>¥</small>58</strong><span>日用品代金券</span></div><button class="welfare-view" data-feedback aria-label="58元券，前往查看"><img src="assets/ui-v2/coupon-view.png" alt="前往查看" draggable="false"></button></div></div>
+  <button class="welfare-more" data-feedback aria-label="更多豪礼"><img src="assets/ui-v2/coupon-more.png" alt="更多豪礼" draggable="false"></button>
+ </div>
+ </section>
+ <section id="play" hidden aria-label="跑酷场景">
+  <video id="street-video" src="assets/street-road-clean.mp4" poster="assets/street-road-poster.jpg" muted loop playsinline preload="auto" aria-hidden="true" tabindex="-1"></video>
+  <canvas id="scene" aria-label="使用左右方向键或左右滑动切换车道，躲避路障并收集红包"></canvas>
+  <header class="hud"><div class="stat"><small>骑行距离</small><strong><span id="distance">0</span><em> m</em></strong></div><div class="stat packet-stat"><img src="assets/packet.png" alt=""><strong id="packets">0</strong></div><button class="circle" id="pause" aria-label="暂停游戏">Ⅱ</button></header>
+  <div class="level"><span id="level-label">第一关</span><div><i id="level-progress"></i></div></div>
+  <div id="instruction">左右滑动 · 躲避路障 · 收集红包</div>
+  <div id="countdown" aria-live="polite"></div>
+  <nav class="steering" aria-label="切换车道"><button id="left" aria-label="向左切道">‹</button><span>← &nbsp; A / D &nbsp; →</span><button id="right" aria-label="向右切道">›</button></nav>
+ </section>
+ <div id="toast" role="status"></div>
+ <div id="loading">正在准备街区…</div>
+</main>
+<audio id="background-music" src="assets/background-music.ogg" loop preload="metadata"></audio>
+<dialog id="modal"><div class="modal-inner"><button class="close" id="close-modal" aria-label="关闭">×</button><div id="modal-content"></div></div></dialog>
+<script src="engine.js?v=barrier-clear-1"></script><script src="game.js?v=packet-layered-1"></script>
+</body></html>
