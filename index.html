@@ -10,7 +10,7 @@
   <button class="hotspot home-music" aria-label="开启音乐" data-action="music"><span id="mute-mark" aria-hidden="true"></span></button>
   <button class="hotspot home-rules" aria-label="规则" data-action="rules"></button>
   <button class="hotspot checkpoints" aria-label="查看关卡说明" data-action="levels"></button>
-  <button class="hotspot rabbit" aria-label="和团团打招呼" data-action="hello"><img src="assets/ui-v2/home-rider.png" alt="" draggable="false"></button>
+  <button class="hotspot rabbit" aria-label="和团团打招呼" data-action="hello"><img src="assets/ui-v2/home-rider-v3.png" alt="" draggable="false"></button>
   <button class="hotspot energy" aria-label="去赚体力" data-action="energy"></button>
   <button class="hotspot ranking" aria-label="排行榜" data-action="ranking"></button>
   <div id="energy-count">剩余体力：3</div>
@@ -21,7 +21,7 @@
  </div>
  </section>
  <section id="play" hidden aria-label="跑酷场景">
-  <video id="street-video" src="assets/street-road-clean.mp4" poster="assets/street-road-poster.jpg" muted loop playsinline preload="auto" aria-hidden="true" tabindex="-1"></video>
+  <video id="street-video" src="assets/street-road-clean-v2.mp4" poster="assets/street-road-poster-v2.jpg" muted loop playsinline webkit-playsinline preload="auto" aria-hidden="true" tabindex="-1"></video>
   <canvas id="scene" aria-label="使用左右方向键或左右滑动切换车道，躲避路障并收集红包"></canvas>
   <header class="hud"><div class="stat"><small>骑行距离</small><strong><span id="distance">0</span><em> m</em></strong></div><div class="stat packet-stat"><img src="assets/packet.png" alt=""><strong id="packets">0</strong></div><button class="circle" id="pause" aria-label="暂停游戏">Ⅱ</button></header>
   <div class="level"><span id="level-label">第一关</span><div><i id="level-progress"></i></div></div>
@@ -34,5 +34,5 @@
 </main>
 <audio id="background-music" src="assets/background-music.ogg" loop preload="metadata"></audio>
 <dialog id="modal"><div class="modal-inner"><button class="close" id="close-modal" aria-label="关闭">×</button><div id="modal-content"></div></div></dialog>
-<script src="engine.js?v=barrier-clear-1"></script><script src="game.js?v=packet-layered-1"></script>
+<script src="engine.js?v=barrier-clear-1"></script><script src="game.js?v=transparent-rider-animation-1"></script>
 </body></html>

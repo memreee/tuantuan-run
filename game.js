@@ -3,10 +3,56 @@ const $=id=>document.getElementById(id);
 const stage=$('stage'),canvas=$('scene'),ctx=canvas.getContext('2d'),engine=new RunnerEngine();
 const streetVideo=$('street-video');
 streetVideo.muted=true;
-function playStreet(){if(!streetVideo.paused)return;streetVideo.play().catch(()=>{if(screen==='playing')toast('背景视频暂未播放，暂停后继续可重试')})}
+streetVideo.defaultMuted=true;
+streetVideo.playsInline=true;
+let streetPending=false,streetLastTime=-1,streetProgressAt=0,streetRetryAt=0;
+function streetWanted(){return !document.hidden&&screen==='playing'}
+function playStreet(){
+ if(!streetWanted()||streetPending)return;
+ streetVideo.muted=true;
+ streetPending=true;
+ try{
+  const attempt=streetVideo.play();
+  Promise.resolve(attempt).catch(()=>{}).finally(()=>{
+   streetPending=false;
+   if(!streetWanted())streetVideo.pause();
+  });
+ }catch{streetPending=false;}
+}
+// Unlock video on the start/resume gesture, but hold its frame through countdown.
+function primeStreet(){
+ if(document.hidden||screen!=='countdown')return;
+ try{Promise.resolve(streetVideo.play()).then(()=>{
+  if(screen!=='playing')streetVideo.pause();
+ }).catch(()=>{});}catch{}
+}
+function resetStreetWatch(){streetLastTime=-1;streetProgressAt=performance.now();streetRetryAt=0;}
+function checkStreet(){
+ if(!streetWanted())return;
+ const now=performance.now(),time=streetVideo.currentTime;
+ if(Math.abs(time-streetLastTime)>.01){streetLastTime=time;streetProgressAt=now;return;}
+ if(now-streetProgressAt<4000||now-streetRetryAt<4000)return;
+ streetRetryAt=now;
+ if(streetVideo.ended){try{streetVideo.currentTime=0}catch{}}
+ // Restart a suspended decoder without reloading the whole video on slow networks.
+ if(!streetVideo.paused&&!streetVideo.seeking&&streetVideo.readyState>=2)streetVideo.pause();
+ playStreet();
+}
+setInterval(checkStreet,1000);
+for(const event of ['canplay','loadeddata','ended'])streetVideo.addEventListener(event,()=>{if(streetWanted())playStreet()});
+// A fresh touch also retries playback under mobile browser gesture policies.
+document.addEventListener('pointerdown',()=>{if(streetWanted()&&streetVideo.paused)playStreet()},{passive:true});
+window.addEventListener('pageshow',()=>{if(streetWanted()){resetStreetWatch();playStreet()}});
 const images={},names=['rider','city','packet'];
+// Transparent, fixed-size animation cells keep lane position and collision geometry unchanged.
+const riderSheets=[];let riderAnimationReady=false;
+Promise.all(Array.from({length:8},(_,index)=>new Promise((resolve,reject)=>{
+ const sheet=new Image();sheet.onload=()=>{riderSheets[index]=sheet;resolve()};sheet.onerror=reject;
+ sheet.src='assets/rider-animation/rider-'+index+'.webp';
+}))).then(()=>{riderAnimationReady=true}).catch(()=>{});
+
 let W=480,H=982,screen='home',ready=false,last=0,count=0,particles=[],pickups=[],elapsed=0,toastTimer,finishTimer,modalKind='',previousFocus;
-let sound=false,audio;
+let sound=true,audio;
 const backgroundMusic=$('background-music');backgroundMusic.volume=.18;
 const storage={get(k,f){try{const v=JSON.parse(localStorage.getItem('tuantuan-'+k));return v??f}catch{return f}},set(k,v){try{localStorage.setItem('tuantuan-'+k,JSON.stringify(v))}catch{}}};
 let records=storage.get('records',[]);if(!Array.isArray(records))records=[];records=records.filter(r=>Number.isFinite(r.distance)&&Number.isFinite(r.packets)).slice(0,10);
@@ -55,7 +101,25 @@ function packetSound(){
 }
 
 function musicUI(){ $('mute-mark').hidden=sound;document.querySelector('.home-music').setAttribute('aria-label',sound?'关闭音乐':'开启音乐'); }
-function playMusic(){if(!sound||document.hidden||screen==='paused')return;backgroundMusic.play().catch(()=>{if(!sound||document.hidden||screen==='paused')return;sound=false;backgroundMusic.pause();musicUI();toast('音乐暂未播放，请点击音乐按钮重试')});}
+function playMusic(){
+ if(!sound||document.hidden||screen==='paused')return;
+ backgroundMusic.play().catch(error=>{
+  if(!sound||document.hidden||screen==='paused')return;
+  // Autoplay restrictions defer audio until a gesture; keep the user's enabled setting.
+  if(error.name==='NotAllowedError'||error.name==='AbortError')return;
+  toast('音乐暂未播放，请点击音乐按钮重试');
+ });
+}
+function unlockGameAudio(){
+ if(!sound)return;
+ try{if(!audio)audio=new(window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{})}catch{}
+ playMusic();
+}
+musicUI();playMusic();
+document.addEventListener('click',event=>{
+ if(!event.target.closest('.home-music'))unlockGameAudio();
+},{capture:true});
+document.addEventListener('keydown',unlockGameAudio,{capture:true});
 function toggleMusic(){sound=!sound;musicUI();if(sound){try{if(!audio)audio=new(window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{})}catch{}playMusic()}else backgroundMusic.pause();toast(sound?'音乐已开启':'音乐已关闭')}
 
 function openModal(title,content,kind='info'){$('modal').classList.remove('design-dialog');$('modal').removeAttribute('style');previousFocus=document.activeElement;modalKind=kind;$('modal-content').innerHTML='<h2>'+title+'</h2>'+content;if(!$('modal').open)$('modal').showModal()}
@@ -88,9 +152,9 @@ function prizes(){openModal('我的奖品',played>0?'<div class="coupon"><strong
 function energyModal(){openModal('去赚体力','<p>团团休息一下，继续出发！</p><p>当前体力 <b>'+energy+' / 3</b></p>'+actionButton('补充体力','refill')+'<p class="fine">看视频赚体力</p>','energy')}
 document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=b.dataset.action;if(a==='start')start();else if(a==='rules')rules();else if(a==='music')toggleMusic();else if(a==='ranking')ranking();else if(a==='prizes')prizes();else if(a==='energy')energyTasks();else if(a==='levels')openModal('关卡挑战','<p>每前进 200 米，解锁下一关。</p><p>第一关 → 第二关 → 第三关<br>第四关 → 第五关 → 极限挑战</p><p>越往前越快，红包也在等你！</p>'+actionButton('开始挑战','start'));else if(a==='hello'){const rider=document.querySelector('.rabbit img');rider.getAnimations().forEach(a=>a.cancel());const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;rider.animate(reduced?[{opacity:.7},{opacity:1}]:[{transform:'translateX(0) rotate(0)'},{transform:'translateX(-5%) rotate(-5deg)'},{transform:'translateX(5%) rotate(5deg)'},{transform:'translateX(-3%) rotate(-3deg)'},{transform:'translateX(0) rotate(0)'}],{duration:reduced?180:620,easing:'ease-in-out'});toast('和团团一起出发，把红包带回家！');}else toast('已经在游戏首页啦')});
 $('modal').addEventListener('click',e=>{const b=e.target.closest('[data-modal-action]');if(!b)return;const a=b.dataset.modalAction;if(a==='start')start();if(a==='resume')resume();if(a==='home')goHome();if(a==='refill'){energy=3;energyUI();openModal('体力已补满','<p>剩余体力 <b>3 / 3</b><br>团团准备好继续出发了！</p>'+actionButton('开始挑战','start')+actionButton('返回首页','home',true),'refilled')}if(a==='ranking')ranking();if(a==='use-prize')openModal('88元神券','<div class="coupon"><strong>88元神券</strong><span>挑战参与奖励</span></div><p>神券已收进你的奖品。</p><p class="fine">当前为展示体验，暂未接入实际核销。</p>'+actionButton('返回我的奖品','prizes'));if(a==='prizes')prizes()});
-function start(){if(!ready){toast('街区还在准备中');return}if(energy<=0){energyModal();return}clearTimeout(finishTimer);$('modal').close();modalKind='';energy--;energyUI();engine.reset();streetVideo.pause();streetVideo.currentTime=0;particles=[];pickups=[];screen='countdown';playMusic();count=3.6;$('home').hidden=true;$('play').hidden=false;$('instruction').style.opacity='1';$('countdown').textContent='3';$('distance').textContent='0';$('packets').textContent='0';$('level-label').textContent='第一关';$('level-progress').style.width='0%';stage.classList.remove('hit');resize();if(audio)audio.resume()}
+function start(){if(!ready){toast('街区还在准备中');return}if(energy<=0){energyModal();return}clearTimeout(finishTimer);$('modal').close();modalKind='';energy--;energyUI();engine.reset();streetVideo.pause();streetVideo.currentTime=0;particles=[];pickups=[];screen='countdown';playMusic();count=3.6;$('home').hidden=true;$('play').hidden=false;$('instruction').style.opacity='1';$('countdown').textContent='3';$('distance').textContent='0';$('packets').textContent='0';$('level-label').textContent='第一关';$('level-progress').style.width='0%';stage.classList.remove('hit');resize();resetStreetWatch();primeStreet();last=performance.now();if(audio)audio.resume()}
 function pause(){if(screen!=='playing'&&screen!=='countdown')return;engine.running=false;streetVideo.pause();screen='paused';backgroundMusic.pause();openModal('稍作休息','<p>团团在这里等你。</p>'+actionButton('继续骑行','resume')+actionButton('返回首页','home',true),'pause')}
-function resume(){$('modal').close();modalKind='';screen='countdown';playMusic();count=1.6;$('countdown').textContent='1';last=performance.now()}
+function resume(){$('modal').close();modalKind='';screen='countdown';playMusic();count=1.6;$('countdown').textContent='1';last=performance.now();resetStreetWatch();primeStreet()}
 function goHome(){clearTimeout(finishTimer);engine.running=false;streetVideo.pause();screen='home';playMusic();$('modal').close();modalKind='';$('home').hidden=false;$('play').hidden=true;$('countdown').textContent='';document.querySelector('.start').focus()}
 function finish(){screen='crashed';streetVideo.pause();stage.classList.add('hit');tone(110,.4,'sawtooth',.035);const record={distance:Math.floor(engine.distance),packets:engine.packets};const best=records.length?record.distance>records[0].distance:true;records.push(record);records.sort((a,b)=>b.distance-a.distance||b.packets-a.packets);records=records.slice(0,10);storage.set('records',records);played++;storage.set('played',played);finishTimer=setTimeout(()=>{openModal(best?'新纪录！':'挑战完成','<img class="modal-icon" src="assets/packet.png" alt="红包"><p>这一路，收获满满</p><div class="result-stats"><div><b>'+record.distance+'</b><span>骑行距离 / 米</span></div><div><b>'+record.packets+'</b><span>收集红包 / 个</span></div></div><span class="badge">最佳纪录 '+records[0].distance+' 米</span>'+actionButton('再挑战一次','start')+actionButton('返回首页','home',true),'result')},280)}
 $('pause').onclick=pause;$('left').onclick=()=>move(-1);$('right').onclick=()=>move(1);
@@ -118,7 +182,11 @@ function drawWorld(){
 function roundRect(x,y,w,h,r,color){ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
 function drawBarrier(o){if(o===engine.hit||o.checked||o.t>=.9)return;const p=project(o.t,o.lane),w=W*.38*p.s,h=w*.68;ctx.save();ctx.translate(p.x,p.y);ctx.fillStyle='#27445b40';ctx.beginPath();ctx.ellipse(0,3,w*.64,w*.13,0,0,Math.PI*2);ctx.fill();roundRect(-w*.4,-h*.4,w*.12,h*.42,2,'#356695');roundRect(w*.28,-h*.4,w*.12,h*.42,2,'#356695');roundRect(-w*.46,-h,w*.92,h*.68,Math.max(2,w*.08),'#e89720');const g=ctx.createLinearGradient(0,-h,0,0);g.addColorStop(0,'#fff397');g.addColorStop(.25,'#ffd850');g.addColorStop(1,'#f1a91c');roundRect(-w*.46,-h,w*.92,h*.62,Math.max(2,w*.06),g);ctx.save();ctx.beginPath();ctx.roundRect(-w*.43,-h*.93,w*.86,h*.49,Math.max(1,w*.035));ctx.clip();for(let i=-3;i<5;i++)poly([[i*w*.29,-h],[i*w*.29+w*.16,-h],[i*w*.29-w*.13,0],[i*w*.29-w*.29,0]],'#f26b4e');ctx.restore();ctx.fillStyle='#fff1a0';ctx.beginPath();ctx.arc(-w*.36,-h*.72,Math.max(1,w*.026),0,7);ctx.arc(w*.36,-h*.72,Math.max(1,w*.026),0,7);ctx.fill();ctx.restore()}
 function drawPacket(o){const p=project(o.t,o.lane),w=W*.15*p.s,h=w*images.packet.height/images.packet.width;ctx.save();ctx.translate(p.x,p.y-h*.48+Math.sin(elapsed*4+o.id)*3*p.s);ctx.rotate(Math.sin(elapsed*2+o.id)*.09);ctx.shadowColor='#ffd76c';ctx.shadowBlur=12*p.s;ctx.drawImage(images.packet,-w/2,-h/2,w,h);ctx.restore()}
-function drawRider(){const p=project(.9,engine.x),h=H*.245,w=h*images.rider.width/images.rider.height,bob=screen==='playing'?Math.sin(engine.time*16)*1.6:0;ctx.save();ctx.translate(p.x,p.y);ctx.fillStyle='#203c6245';ctx.beginPath();ctx.ellipse(0,3,w*.55,w*.12,0,0,7);ctx.fill();ctx.rotate((engine.lane-engine.x)*.12);ctx.drawImage(images.rider,-w/2,-h+bob,w,h);ctx.restore()}
+function drawRider(){const p=project(.9,engine.x),h=H*.245,w=h*images.rider.width/images.rider.height,bob=screen==='playing'?Math.sin(engine.time*16)*1.6:0;ctx.save();ctx.translate(p.x,p.y);ctx.fillStyle='#203c6245';ctx.beginPath();ctx.ellipse(0,3,w*.55,w*.12,0,0,7);ctx.fill();ctx.rotate((engine.lane-engine.x)*.12);if(riderAnimationReady){
+ const frame=Math.floor(engine.time*24)%96,sheet=riderSheets[Math.floor(frame/12)],cell=frame%12;
+ ctx.drawImage(sheet,(cell%4)*210,Math.floor(cell/4)*550,210,550,-w/2,-h+bob,w,h);
+ }else ctx.drawImage(images.rider,-w/2,-h+bob,w,h);
+ ctx.restore()}
 function collectEffect(lane){
  packetSound();
  const p=project(.9,lane),x=p.x,y=p.y-H*.1;
